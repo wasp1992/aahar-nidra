@@ -2,13 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Moon, Sun, Utensils, Activity, ChevronLeft, ChevronRight, 
   Plus, Save, Trash2, PieChart, BarChart2, Info, Droplet,
-  Sparkles, X, Smartphone, Share2, Search, AlertTriangle, WifiOff
+  Sparkles, X, Smartphone, Share2, Search, AlertTriangle, 
+  WifiOff, LogOut, User
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-// Removed Analytics to ensure stability
 import { 
   getAuth, 
   signInAnonymously, 
+  GoogleAuthProvider, 
+  signInWithPopup,    
+  signOut,            
   onAuthStateChanged 
 } from 'firebase/auth';
 import { 
@@ -19,46 +22,130 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 
-// --- Expanded Indian Food Database ---
+// --- MASSIVE INDIAN FOOD DATABASE (100+ Items) ---
 const INDIAN_FOOD_DB = [
+  // --- BREADS (ROTI/PARATHA) ---
   { name: 'Roti (Whole Wheat)', calories: 104, protein: 3, carbs: 22, fat: 0.5, fiber: 2.5, vitA: 0, vitC: 0, iron: 6, calcium: 2 },
-  { name: 'Plain Rice (1 cup)', calories: 205, protein: 4, carbs: 45, fat: 0.5, fiber: 0.5, vitA: 0, vitC: 0, iron: 2, calcium: 1 },
-  { name: 'Brown Rice (1 cup)', calories: 215, protein: 5, carbs: 44, fat: 1.5, fiber: 3.5, vitA: 0, vitC: 0, iron: 5, calcium: 2 },
+  { name: 'Roti (Bajra/Millet)', calories: 116, protein: 4, carbs: 22, fat: 1.5, fiber: 4, vitA: 2, vitC: 0, iron: 10, calcium: 5 },
   { name: 'Paratha (Plain)', calories: 260, protein: 6, carbs: 34, fat: 12, fiber: 3, vitA: 2, vitC: 0, iron: 6, calcium: 3 },
+  { name: 'Aloo Paratha', calories: 330, protein: 8, carbs: 48, fat: 14, fiber: 4, vitA: 4, vitC: 12, iron: 8, calcium: 5 },
+  { name: 'Paneer Paratha', calories: 360, protein: 14, carbs: 42, fat: 18, fiber: 3, vitA: 6, vitC: 2, iron: 6, calcium: 20 },
+  { name: 'Gobi Paratha', calories: 290, protein: 7, carbs: 45, fat: 11, fiber: 5, vitA: 4, vitC: 25, iron: 8, calcium: 8 },
+  { name: 'Naan (Plain)', calories: 260, protein: 8, carbs: 45, fat: 5, fiber: 2, vitA: 0, vitC: 0, iron: 4, calcium: 3 },
   { name: 'Naan (Butter)', calories: 320, protein: 8, carbs: 48, fat: 10, fiber: 2, vitA: 4, vitC: 0, iron: 8, calcium: 4 },
-  { name: 'Poha (1 plate)', calories: 250, protein: 5, carbs: 46, fat: 8, fiber: 2, vitA: 8, vitC: 15, iron: 25, calcium: 2 },
-  { name: 'Upma (1 bowl)', calories: 220, protein: 6, carbs: 35, fat: 8, fiber: 4, vitA: 5, vitC: 4, iron: 8, calcium: 3 },
-  { name: 'Dhokla (2 pcs)', calories: 150, protein: 6, carbs: 22, fat: 4, fiber: 2, vitA: 2, vitC: 2, iron: 6, calcium: 4 },
-  { name: 'Vada Pav (1 pc)', calories: 300, protein: 8, carbs: 45, fat: 14, fiber: 3, vitA: 4, vitC: 8, iron: 10, calcium: 5 },
+  { name: 'Garlic Naan', calories: 330, protein: 9, carbs: 48, fat: 11, fiber: 2, vitA: 2, vitC: 2, iron: 6, calcium: 5 },
+  { name: 'Puri (1 pc)', calories: 140, protein: 2, carbs: 18, fat: 7, fiber: 1, vitA: 0, vitC: 0, iron: 2, calcium: 1 },
+  { name: 'Bhatura (1 pc)', calories: 280, protein: 6, carbs: 40, fat: 12, fiber: 1, vitA: 0, vitC: 0, iron: 3, calcium: 2 },
+  { name: 'Thepla (1 pc)', calories: 120, protein: 3, carbs: 18, fat: 5, fiber: 2, vitA: 8, vitC: 4, iron: 6, calcium: 4 },
+  { name: 'Missi Roti', calories: 140, protein: 6, carbs: 20, fat: 4, fiber: 4, vitA: 2, vitC: 0, iron: 8, calcium: 5 },
+
+  // --- RICE & BIRYANI ---
+  { name: 'Plain Rice (1 cup)', calories: 205, protein: 4, carbs: 45, fat: 0.5, fiber: 0.5, vitA: 0, vitC: 0, iron: 2, calcium: 1 },
+  { name: 'Jeera Rice (1 cup)', calories: 230, protein: 4, carbs: 46, fat: 4, fiber: 1, vitA: 1, vitC: 0, iron: 4, calcium: 2 },
+  { name: 'Veg Biryani (1 plate)', calories: 380, protein: 8, carbs: 65, fat: 12, fiber: 6, vitA: 25, vitC: 15, iron: 10, calcium: 8 },
+  { name: 'Chicken Biryani (1 plate)', calories: 450, protein: 25, carbs: 60, fat: 16, fiber: 3, vitA: 15, vitC: 10, iron: 12, calcium: 10 },
+  { name: 'Curd Rice (1 bowl)', calories: 280, protein: 8, carbs: 40, fat: 10, fiber: 1, vitA: 4, vitC: 2, iron: 2, calcium: 25 },
+  { name: 'Khichdi (Plain)', calories: 210, protein: 8, carbs: 38, fat: 3, fiber: 4, vitA: 2, vitC: 0, iron: 5, calcium: 4 },
+  { name: 'Masala Khichdi', calories: 280, protein: 9, carbs: 42, fat: 9, fiber: 6, vitA: 15, vitC: 12, iron: 8, calcium: 6 },
+  { name: 'Pulao (Veg)', calories: 300, protein: 6, carbs: 55, fat: 8, fiber: 4, vitA: 20, vitC: 10, iron: 6, calcium: 5 },
+  { name: 'Lemon Rice', calories: 250, protein: 4, carbs: 45, fat: 8, fiber: 2, vitA: 2, vitC: 15, iron: 4, calcium: 3 },
+
+  // --- DAL & LEGUMES ---
+  { name: 'Dal Tadka (1 bowl)', calories: 260, protein: 14, carbs: 32, fat: 9, fiber: 8, vitA: 10, vitC: 5, iron: 15, calcium: 6 },
+  { name: 'Dal Makhani (1 bowl)', calories: 350, protein: 14, carbs: 28, fat: 22, fiber: 7, vitA: 12, vitC: 2, iron: 10, calcium: 12 },
+  { name: 'Dal Fry', calories: 220, protein: 12, carbs: 30, fat: 8, fiber: 7, vitA: 8, vitC: 4, iron: 12, calcium: 5 },
+  { name: 'Moong Dal (Plain)', calories: 140, protein: 10, carbs: 22, fat: 2, fiber: 6, vitA: 2, vitC: 0, iron: 10, calcium: 4 },
+  { name: 'Chole (Chickpeas)', calories: 280, protein: 12, carbs: 40, fat: 8, fiber: 10, vitA: 8, vitC: 15, iron: 20, calcium: 8 },
+  { name: 'Rajma Masala', calories: 260, protein: 14, carbs: 38, fat: 7, fiber: 12, vitA: 6, vitC: 8, iron: 22, calcium: 10 },
+  { name: 'Sambar (1 bowl)', calories: 160, protein: 6, carbs: 25, fat: 4, fiber: 5, vitA: 12, vitC: 15, iron: 8, calcium: 6 },
+  { name: 'Kadhi Pakora', calories: 280, protein: 10, carbs: 25, fat: 16, fiber: 2, vitA: 10, vitC: 4, iron: 6, calcium: 15 },
+
+  // --- SABZI & CURRIES (VEG) ---
+  { name: 'Aloo Gobi', calories: 180, protein: 5, carbs: 24, fat: 8, fiber: 6, vitA: 8, vitC: 60, iron: 10, calcium: 8 },
+  { name: 'Bhindi Masala', calories: 160, protein: 4, carbs: 14, fat: 10, fiber: 6, vitA: 15, vitC: 30, iron: 8, calcium: 10 },
+  { name: 'Baingan Bharta', calories: 140, protein: 3, carbs: 12, fat: 9, fiber: 7, vitA: 4, vitC: 10, iron: 6, calcium: 5 },
+  { name: 'Palak Paneer', calories: 340, protein: 18, carbs: 12, fat: 24, fiber: 6, vitA: 80, vitC: 40, iron: 30, calcium: 25 },
+  { name: 'Paneer Butter Masala', calories: 400, protein: 16, carbs: 14, fat: 32, fiber: 2, vitA: 20, vitC: 15, iron: 5, calcium: 20 },
+  { name: 'Matar Paneer', calories: 320, protein: 16, carbs: 20, fat: 18, fiber: 5, vitA: 25, vitC: 20, iron: 12, calcium: 18 },
+  { name: 'Kadai Paneer', calories: 350, protein: 18, carbs: 15, fat: 25, fiber: 4, vitA: 20, vitC: 30, iron: 8, calcium: 22 },
+  { name: 'Shahi Paneer', calories: 420, protein: 16, carbs: 18, fat: 34, fiber: 2, vitA: 22, vitC: 8, iron: 6, calcium: 24 },
+  { name: 'Paneer Bhurji', calories: 280, protein: 20, carbs: 8, fat: 20, fiber: 2, vitA: 10, vitC: 10, iron: 8, calcium: 28 },
+  { name: 'Malai Kofta (2 pcs)', calories: 450, protein: 10, carbs: 35, fat: 30, fiber: 4, vitA: 15, vitC: 5, iron: 8, calcium: 12 },
+  { name: 'Mix Veg Curry', calories: 210, protein: 6, carbs: 18, fat: 12, fiber: 5, vitA: 25, vitC: 20, iron: 8, calcium: 8 },
+  { name: 'Dum Aloo', calories: 260, protein: 5, carbs: 30, fat: 14, fiber: 4, vitA: 6, vitC: 15, iron: 8, calcium: 6 },
+  { name: 'Sarson Ka Saag', calories: 200, protein: 8, carbs: 15, fat: 14, fiber: 8, vitA: 90, vitC: 50, iron: 40, calcium: 25 },
+  { name: 'Mushroom Masala', calories: 220, protein: 8, carbs: 12, fat: 16, fiber: 4, vitA: 4, vitC: 8, iron: 15, calcium: 6 },
+
+  // --- NON-VEG ---
+  { name: 'Butter Chicken (1 bowl)', calories: 450, protein: 25, carbs: 12, fat: 30, fiber: 2, vitA: 15, vitC: 8, iron: 8, calcium: 10 },
+  { name: 'Chicken Curry', calories: 320, protein: 28, carbs: 8, fat: 18, fiber: 1, vitA: 5, vitC: 5, iron: 10, calcium: 4 },
+  { name: 'Chicken Tikka (6 pcs)', calories: 280, protein: 35, carbs: 5, fat: 12, fiber: 1, vitA: 8, vitC: 10, iron: 12, calcium: 6 },
+  { name: 'Egg Curry (2 eggs)', calories: 260, protein: 14, carbs: 8, fat: 18, fiber: 1, vitA: 12, vitC: 2, iron: 15, calcium: 8 },
+  { name: 'Omelette (2 eggs)', calories: 220, protein: 14, carbs: 2, fat: 16, fiber: 0, vitA: 15, vitC: 0, iron: 12, calcium: 6 },
+  { name: 'Fish Curry', calories: 280, protein: 24, carbs: 8, fat: 16, fiber: 1, vitA: 6, vitC: 5, iron: 10, calcium: 15 },
+  { name: 'Mutton Curry', calories: 400, protein: 25, carbs: 10, fat: 28, fiber: 2, vitA: 5, vitC: 2, iron: 20, calcium: 5 },
+
+  // --- SOUTH INDIAN ---
   { name: 'Idli (2 pcs)', calories: 120, protein: 4, carbs: 24, fat: 0.5, fiber: 2, vitA: 0, vitC: 0, iron: 4, calcium: 3 },
   { name: 'Dosa (Plain)', calories: 180, protein: 4, carbs: 28, fat: 6, fiber: 1, vitA: 0, vitC: 0, iron: 4, calcium: 2 },
   { name: 'Masala Dosa', calories: 350, protein: 8, carbs: 45, fat: 16, fiber: 5, vitA: 8, vitC: 6, iron: 12, calcium: 6 },
+  { name: 'Uttapam', calories: 240, protein: 6, carbs: 35, fat: 8, fiber: 4, vitA: 10, vitC: 15, iron: 6, calcium: 5 },
+  { name: 'Vada (Medu Vada, 2 pcs)', calories: 300, protein: 8, carbs: 30, fat: 18, fiber: 4, vitA: 2, vitC: 2, iron: 8, calcium: 6 },
+  { name: 'Pongal (Ven Pongal)', calories: 320, protein: 8, carbs: 45, fat: 12, fiber: 3, vitA: 2, vitC: 2, iron: 6, calcium: 4 },
+  { name: 'Upma', calories: 220, protein: 6, carbs: 35, fat: 8, fiber: 4, vitA: 5, vitC: 4, iron: 8, calcium: 3 },
+  { name: 'Rava Dosa', calories: 220, protein: 4, carbs: 32, fat: 8, fiber: 1, vitA: 2, vitC: 0, iron: 4, calcium: 2 },
+  { name: 'Appam (1 pc)', calories: 120, protein: 2, carbs: 25, fat: 2, fiber: 1, vitA: 0, vitC: 0, iron: 2, calcium: 2 },
+  { name: 'Puttu (1 portion)', calories: 280, protein: 6, carbs: 55, fat: 4, fiber: 3, vitA: 0, vitC: 0, iron: 4, calcium: 2 },
+
+  // --- SNACKS & STREET FOOD ---
+  { name: 'Poha', calories: 250, protein: 5, carbs: 46, fat: 8, fiber: 2, vitA: 8, vitC: 15, iron: 25, calcium: 2 },
   { name: 'Samosa (1 pc)', calories: 260, protein: 4, carbs: 24, fat: 18, fiber: 2, vitA: 2, vitC: 4, iron: 4, calcium: 2 },
-  { name: 'Pakora (Mixed, 4 pcs)', calories: 280, protein: 6, carbs: 20, fat: 20, fiber: 3, vitA: 6, vitC: 5, iron: 5, calcium: 4 },
-  { name: 'Bhel Puri (1 plate)', calories: 220, protein: 6, carbs: 40, fat: 5, fiber: 4, vitA: 10, vitC: 12, iron: 15, calcium: 4 },
+  { name: 'Vada Pav', calories: 300, protein: 8, carbs: 45, fat: 14, fiber: 3, vitA: 4, vitC: 8, iron: 10, calcium: 5 },
+  { name: 'Pav Bhaji (2 pav + bhaji)', calories: 600, protein: 15, carbs: 80, fat: 25, fiber: 10, vitA: 40, vitC: 30, iron: 20, calcium: 12 },
+  { name: 'Dhokla (2 pcs)', calories: 150, protein: 6, carbs: 22, fat: 4, fiber: 2, vitA: 2, vitC: 2, iron: 6, calcium: 4 },
   { name: 'Pani Puri (6 pcs)', calories: 220, protein: 4, carbs: 32, fat: 8, fiber: 2, vitA: 4, vitC: 8, iron: 8, calcium: 4 },
-  { name: 'Sabudana Khichdi (1 bowl)', calories: 350, protein: 3, carbs: 60, fat: 14, fiber: 2, vitA: 2, vitC: 0, iron: 4, calcium: 4 },
-  { name: 'Dal Tadka (1 bowl)', calories: 260, protein: 14, carbs: 32, fat: 9, fiber: 8, vitA: 10, vitC: 5, iron: 15, calcium: 6 },
-  { name: 'Dal Makhani (1 bowl)', calories: 350, protein: 14, carbs: 28, fat: 22, fiber: 7, vitA: 12, vitC: 2, iron: 10, calcium: 12 },
-  { name: 'Aloo Gobi (1 bowl)', calories: 180, protein: 5, carbs: 24, fat: 8, fiber: 6, vitA: 8, vitC: 60, iron: 10, calcium: 8 },
-  { name: 'Bhindi Masala (1 bowl)', calories: 160, protein: 4, carbs: 14, fat: 10, fiber: 6, vitA: 15, vitC: 30, iron: 8, calcium: 10 },
-  { name: 'Baingan Bharta', calories: 140, protein: 3, carbs: 12, fat: 9, fiber: 7, vitA: 4, vitC: 10, iron: 6, calcium: 5 },
-  { name: 'Palak Paneer (1 bowl)', calories: 340, protein: 18, carbs: 12, fat: 24, fiber: 6, vitA: 80, vitC: 40, iron: 30, calcium: 25 },
-  { name: 'Paneer Butter Masala', calories: 400, protein: 16, carbs: 14, fat: 32, fiber: 2, vitA: 20, vitC: 15, iron: 5, calcium: 20 },
-  { name: 'Chole (Chickpeas)', calories: 280, protein: 12, carbs: 40, fat: 8, fiber: 10, vitA: 8, vitC: 15, iron: 20, calcium: 8 },
-  { name: 'Rajma Masala', calories: 260, protein: 14, carbs: 38, fat: 7, fiber: 12, vitA: 6, vitC: 8, iron: 22, calcium: 10 },
-  { name: 'Mix Veg Curry', calories: 210, protein: 6, carbs: 18, fat: 12, fiber: 5, vitA: 25, vitC: 20, iron: 8, calcium: 8 },
-  { name: 'Curd/Yogurt (1 cup)', calories: 100, protein: 8, carbs: 10, fat: 4, fiber: 0, vitA: 4, vitC: 0, iron: 0, calcium: 30 },
-  { name: 'Milk (1 glass)', calories: 150, protein: 8, carbs: 12, fat: 8, fiber: 0, vitA: 10, vitC: 0, iron: 0, calcium: 35 },
+  { name: 'Bhel Puri', calories: 220, protein: 6, carbs: 40, fat: 5, fiber: 4, vitA: 10, vitC: 12, iron: 15, calcium: 4 },
+  { name: 'Aloo Tikki (2 pcs)', calories: 300, protein: 4, carbs: 35, fat: 16, fiber: 4, vitA: 4, vitC: 10, iron: 6, calcium: 4 },
+  { name: 'Pakora (Mixed, 4 pcs)', calories: 280, protein: 6, carbs: 20, fat: 20, fiber: 3, vitA: 6, vitC: 5, iron: 5, calcium: 4 },
+  { name: 'Kachori (1 pc)', calories: 280, protein: 5, carbs: 28, fat: 18, fiber: 3, vitA: 2, vitC: 2, iron: 5, calcium: 3 },
+  { name: 'Sabudana Khichdi', calories: 350, protein: 3, carbs: 60, fat: 14, fiber: 2, vitA: 2, vitC: 0, iron: 4, calcium: 4 },
+  { name: 'Momos (Steamed, 6 pcs)', calories: 240, protein: 8, carbs: 35, fat: 6, fiber: 2, vitA: 2, vitC: 4, iron: 4, calcium: 2 },
+  { name: 'Momos (Fried, 6 pcs)', calories: 450, protein: 8, carbs: 35, fat: 28, fiber: 2, vitA: 2, vitC: 4, iron: 4, calcium: 2 },
+  { name: 'Papdi Chaat', calories: 350, protein: 8, carbs: 45, fat: 16, fiber: 4, vitA: 8, vitC: 12, iron: 8, calcium: 15 },
+
+  // --- SWEETS & DESSERTS ---
+  { name: 'Gulab Jamun (2 pcs)', calories: 300, protein: 4, carbs: 40, fat: 14, fiber: 0, vitA: 2, vitC: 0, iron: 2, calcium: 8 },
+  { name: 'Rasgulla (2 pcs)', calories: 240, protein: 6, carbs: 50, fat: 2, fiber: 0, vitA: 2, vitC: 0, iron: 2, calcium: 12 },
+  { name: 'Kheer (1 bowl)', calories: 280, protein: 8, carbs: 40, fat: 10, fiber: 0, vitA: 8, vitC: 0, iron: 2, calcium: 25 },
+  { name: 'Gajar Ka Halwa', calories: 350, protein: 6, carbs: 45, fat: 18, fiber: 4, vitA: 80, vitC: 5, iron: 6, calcium: 18 },
+  { name: 'Jalebi (4 pcs)', calories: 350, protein: 2, carbs: 60, fat: 12, fiber: 0, vitA: 0, vitC: 0, iron: 2, calcium: 2 },
+  { name: 'Besan Ladoo (1 pc)', calories: 180, protein: 4, carbs: 20, fat: 10, fiber: 2, vitA: 2, vitC: 0, iron: 4, calcium: 4 },
+  { name: 'Barfi (1 pc)', calories: 150, protein: 4, carbs: 18, fat: 8, fiber: 0, vitA: 4, vitC: 0, iron: 2, calcium: 10 },
+  { name: 'Sooji Halwa', calories: 280, protein: 4, carbs: 40, fat: 12, fiber: 2, vitA: 2, vitC: 0, iron: 4, calcium: 4 },
+  { name: 'Rasmalai (2 pcs)', calories: 320, protein: 12, carbs: 35, fat: 16, fiber: 0, vitA: 10, vitC: 0, iron: 4, calcium: 30 },
+
+  // --- BEVERAGES ---
   { name: 'Masala Chai (1 cup)', calories: 120, protein: 3, carbs: 14, fat: 5, fiber: 0, vitA: 2, vitC: 0, iron: 0, calcium: 10 },
+  { name: 'Filter Coffee', calories: 100, protein: 2, carbs: 12, fat: 4, fiber: 0, vitA: 2, vitC: 0, iron: 0, calcium: 8 },
   { name: 'Lassi (Sweet)', calories: 250, protein: 9, carbs: 35, fat: 10, fiber: 0, vitA: 6, vitC: 2, iron: 1, calcium: 35 },
+  { name: 'Mango Lassi', calories: 300, protein: 8, carbs: 45, fat: 10, fiber: 1, vitA: 20, vitC: 30, iron: 1, calcium: 30 },
   { name: 'Buttermilk (Chaas)', calories: 45, protein: 2, carbs: 3, fat: 2, fiber: 0, vitA: 2, vitC: 2, iron: 0, calcium: 10 },
+  { name: 'Milk (1 glass)', calories: 150, protein: 8, carbs: 12, fat: 8, fiber: 0, vitA: 10, vitC: 0, iron: 0, calcium: 35 },
+  { name: 'Coconut Water', calories: 45, protein: 1, carbs: 10, fat: 0, fiber: 3, vitA: 0, vitC: 10, iron: 2, calcium: 6 },
+  { name: 'Thandai', calories: 280, protein: 6, carbs: 35, fat: 12, fiber: 2, vitA: 8, vitC: 4, iron: 6, calcium: 20 },
+
+  // --- FRUITS & NUTS ---
   { name: 'Banana (1 medium)', calories: 105, protein: 1.3, carbs: 27, fat: 0.3, fiber: 3, vitA: 2, vitC: 15, iron: 2, calcium: 1 },
   { name: 'Apple (1 medium)', calories: 95, protein: 0.5, carbs: 25, fat: 0.3, fiber: 4.4, vitA: 2, vitC: 14, iron: 1, calcium: 1 },
   { name: 'Mango (1 cup)', calories: 99, protein: 1.4, carbs: 25, fat: 0.6, fiber: 2.6, vitA: 20, vitC: 60, iron: 1, calcium: 1 },
+  { name: 'Guava', calories: 68, protein: 2.6, carbs: 14, fat: 1, fiber: 5.4, vitA: 12, vitC: 380, iron: 2, calcium: 2 },
+  { name: 'Papaya (1 cup)', calories: 62, protein: 0.5, carbs: 16, fat: 0.3, fiber: 2.5, vitA: 30, vitC: 150, iron: 1, calcium: 3 },
+  { name: 'Pomegranate (1 cup)', calories: 144, protein: 3, carbs: 32, fat: 2, fiber: 7, vitA: 0, vitC: 30, iron: 4, calcium: 2 },
+  { name: 'Almonds (10 pcs)', calories: 70, protein: 2.5, carbs: 2.5, fat: 6, fiber: 1.5, vitA: 0, vitC: 0, iron: 4, calcium: 4 },
+  { name: 'Walnuts (5 halves)', calories: 130, protein: 3, carbs: 3, fat: 13, fiber: 1.5, vitA: 0, vitC: 0, iron: 4, calcium: 2 },
 ];
 
-// --- Firebase Config & Init ---
+// --- Firebase Config ---
 const firebaseConfig = {
   apiKey: "AIzaSyBFqn43hvOz8ELljdFZNBurYorKXkKI1sc",
   authDomain: "aahar-nidra.firebaseapp.com",
@@ -69,7 +156,7 @@ const firebaseConfig = {
   measurementId: "G-RGT4NKE8VY"
 };
 
-// Initialize Firebase with safety check
+// Initialize Firebase
 let app, auth, db;
 try {
   app = initializeApp(firebaseConfig);
@@ -82,7 +169,7 @@ try {
 const appId = firebaseConfig.projectId; 
 
 // --- Gemini API Helper ---
-const apiKey = ""; 
+const apiKey = ""; // Add your Gemini Key here if you want AI features
 const callGemini = async (prompt) => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
   const payload = { contents: [{ parts: [{ text: prompt }] }] };
@@ -140,29 +227,6 @@ const AIModal = ({ isOpen, onClose, title, content, isLoading }) => {
   );
 };
 
-const DeployInfoModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 relative">
-        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"><X size={20}/></button>
-        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Smartphone size={20} className="text-indigo-600"/> Install on Mobile</h3>
-        <div className="space-y-4 text-sm text-gray-600">
-          <p>To use this app on your Android/iOS device:</p>
-          <ol className="list-decimal pl-4 space-y-2">
-            <li><strong>Deploy:</strong> Use a free service like <strong>Vercel</strong> or <strong>Firebase Hosting</strong> to host this code.</li>
-            <li><strong>Open Link:</strong> Open your new website link on your mobile browser (Chrome/Safari).</li>
-            <li><strong>Add to Home:</strong> Tap the browser menu (3 dots) &rarr; Select <strong>"Add to Home Screen"</strong>.</li>
-          </ol>
-          <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 mt-2">
-            <p className="text-xs text-indigo-700 font-medium">💡 This makes it look and feel exactly like a real app!</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const SleepChart = ({ history }) => {
   const data = [...history].sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
   if (data.length === 0) return <div className="text-gray-500 text-sm p-4 text-center italic">Start tracking sleep to see trends</div>;
@@ -212,35 +276,25 @@ export default function App() {
   const [selectedFood, setSelectedFood] = useState(null);
   const [foodQuantity, setFoodQuantity] = useState(1);
   const [aiModal, setAiModal] = useState({ open: false, title: '', content: '', loading: false });
-  const [showDeployInfo, setShowDeployInfo] = useState(false);
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      if (!auth) {
-        setAuthError("Firebase unavailable.");
-        return;
-      }
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.warn("Auth failed, enabling Guest Mode", error);
-        setAuthError(error.message);
-      }
-    };
-    
-    // Try to load from local storage if firebase fails or just for cache
-    const savedLogs = localStorage.getItem('aahar_logs');
-    if (savedLogs) {
-      try { setLogs(JSON.parse(savedLogs)); } catch(e){}
+    // Check if user is already logged in (persisted session)
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        if (!currentUser) {
+          // Only check for local cache if not logged in
+          const savedLogs = localStorage.getItem('aahar_logs');
+          if (savedLogs) try { setLogs(JSON.parse(savedLogs)); } catch(e){}
+        }
+      });
+      return () => unsubscribe();
     }
-
-    initAuth();
-    if(auth) return onAuthStateChanged(auth, setUser);
   }, []);
 
+  // Sync with Firestore
   useEffect(() => {
-    // Load data from Firestore if User exists
     if (!user || !db || isGuest) return;
     
     const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'daily_logs');
@@ -248,36 +302,55 @@ export default function App() {
       const newLogs = {};
       snapshot.forEach(doc => newLogs[doc.id] = doc.data());
       setLogs(newLogs);
-      // Backup to localstorage
-      localStorage.setItem('aahar_logs', JSON.stringify(newLogs));
     }, (error) => {
        console.error("Error fetching logs:", error);
-       setIsGuest(true); // Fallback to guest if permission denied
     });
     return () => unsubscribe();
   }, [user, isGuest]);
 
+  // --- Login Handlers ---
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      setAuthError(null);
+      await signInWithPopup(auth, provider);
+      setIsGuest(false); // Ensure we are not in guest mode
+    } catch (error) {
+      console.error("Google Auth Error:", error);
+      setAuthError(error.message);
+    }
+  };
+
   const handleGuestLogin = () => {
-    setUser({ uid: 'guest_user', isAnonymous: true });
     setIsGuest(true);
-    setAuthError(null);
+    setUser({ uid: 'guest', displayName: 'Guest User', isAnonymous: true });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setIsGuest(false);
+      setLogs({}); // Clear logs from view
+      setAuthError(null);
+    } catch (error) {
+      console.error("Logout Error", error);
+    }
   };
 
   const updateLogs = async (newData) => {
-    // Update State
     const newLogs = { ...logs, [selectedDate]: newData };
     setLogs(newLogs);
     
-    // Update Local Storage (Always)
-    localStorage.setItem('aahar_logs', JSON.stringify(newLogs));
-
-    // Update Firestore (If connected)
+    // Save to Cloud if User, else Local Storage
     if (user && !isGuest && db) {
       try {
         await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'daily_logs', selectedDate), newData);
       } catch(e) {
-        console.warn("Save to cloud failed, saved locally.");
+        console.warn("Save to cloud failed.");
       }
+    } else {
+      localStorage.setItem('aahar_logs', JSON.stringify(newLogs));
     }
   };
 
@@ -295,6 +368,7 @@ export default function App() {
 
   const historyList = useMemo(() => Object.keys(logs).map(date => ({ date, ...logs[date] })), [logs]);
 
+  // ... (Action Functions same as before)
   const saveSleep = async () => {
     const duration = calculateSleepDuration(sleepForm.bedtime, sleepForm.waketime);
     const newData = { ...currentLog, sleep: { ...sleepForm, duration } };
@@ -333,52 +407,74 @@ export default function App() {
     setAiModal({ open: true, title: 'Meal Suggestion', content: suggestion, loading: false });
   };
 
+  // --- Login Screen ---
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen bg-indigo-50 p-6">
-        {authError ? (
-          <div className="text-center bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full">
-             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-               <AlertTriangle size={32} />
+      <div className="flex flex-col items-center justify-center h-screen bg-indigo-50 p-6">
+        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full text-center">
+           <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+             <Activity size={40} />
+           </div>
+           <h1 className="text-2xl font-bold text-gray-800 mb-2">Aahar & Nidra</h1>
+           <p className="text-sm text-gray-500 mb-8">Track your Indian diet and sleep patterns seamlessly.</p>
+           
+           {authError && (
+             <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600 text-left">
+               {authError.includes('auth/unauthorized-domain') 
+                 ? "Domain not allowed. Add your Vercel URL to Firebase Console -> Auth -> Settings -> Authorized Domains."
+                 : authError}
              </div>
-             <h2 className="text-lg font-bold text-gray-800 mb-2">Database Connection Failed</h2>
-             <p className="text-sm text-gray-500 mb-6">
-               We couldn't connect to Firebase. This usually means "Anonymous Auth" is disabled in the console.
-             </p>
-             
-             <button 
-               onClick={handleGuestLogin}
-               className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-             >
-               <WifiOff size={18} /> Continue Offline
-             </button>
-             <p className="text-xs text-gray-400 mt-4">Data will be saved to this device only.</p>
-          </div>
-        ) : (
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        )}
+           )}
+
+           <button 
+             onClick={handleGoogleLogin}
+             className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm mb-3"
+           >
+             {/* Simple G icon fallback */}
+             <span className="font-bold text-blue-500">G</span> Continue with Google
+           </button>
+           
+           <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+              <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">Or</span></div>
+           </div>
+
+           <button 
+             onClick={handleGuestLogin}
+             className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+           >
+             <WifiOff size={18} /> Try Offline (Guest)
+           </button>
+        </div>
       </div>
     );
   }
 
+  // --- Main App ---
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans max-w-md mx-auto shadow-2xl overflow-hidden flex flex-col">
       <AIModal isOpen={aiModal.open} title={aiModal.title} content={aiModal.content} isLoading={aiModal.loading} onClose={() => setAiModal({ ...aiModal, open: false })} />
-      <DeployInfoModal isOpen={showDeployInfo} onClose={() => setShowDeployInfo(false)} />
 
       <header className="bg-indigo-600 text-white p-6 pb-12 rounded-b-[30px] shadow-lg relative z-10">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Activity size={24} /> Aahar & Nidra</h1>
-          <button onClick={() => setShowDeployInfo(true)} className="text-xs bg-indigo-500 hover:bg-indigo-400 transition-colors px-2 py-1 rounded flex items-center gap-1">
-             <Smartphone size={14} /> Install App
-          </button>
+          <div className="flex items-center gap-2">
+             {user.photoURL ? (
+               <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border-2 border-white/50" />
+             ) : (
+               <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center"><User size={16}/></div>
+             )}
+             <button onClick={handleLogout} className="text-xs bg-indigo-500 hover:bg-indigo-400 p-2 rounded-lg">
+                <LogOut size={16} />
+             </button>
+          </div>
         </div>
         <div className="flex items-center justify-between bg-indigo-500/50 rounded-lg p-2">
           <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString().split('T')[0]); }} className="p-1 hover:bg-indigo-400 rounded"><ChevronLeft size={20} /></button>
           <span className="font-medium">{new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} {selectedDate === getTodayStr() && " (Today)"}</span>
           <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toISOString().split('T')[0]); }} className="p-1 hover:bg-indigo-400 rounded"><ChevronRight size={20} /></button>
         </div>
-        {isGuest && <div className="absolute top-full left-0 w-full bg-orange-100 text-orange-800 text-xs py-1 text-center z-0">Offline Mode (Guest)</div>}
+        {isGuest && <div className="absolute top-full left-0 w-full bg-orange-100 text-orange-800 text-xs py-1 text-center z-0">Guest Mode (Data not synced)</div>}
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 -mt-6 relative z-20 pb-24">
@@ -404,6 +500,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ... (Keep other Tabs: 'sleep', 'food', 'analysis' exactly as they were in previous code. They don't change with auth logic) ... */}
         {activeTab === 'sleep' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><button onClick={() => setActiveTab('dashboard')} className="text-gray-400 hover:text-gray-600"><ChevronLeft /></button>Log Sleep</h2>
@@ -467,7 +564,9 @@ export default function App() {
         <button onClick={() => setActiveTab('sleep')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'sleep' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-gray-600'}`}><Moon size={24} /><span className="text-[10px] font-medium">Sleep</span></button>
         <button onClick={() => setActiveTab('food')} className={`relative p-2 -mt-6 bg-orange-500 text-white rounded-full shadow-lg border-4 border-gray-50 flex flex-col items-center justify-center w-14 h-14 hover:bg-orange-600 transition-transform active:scale-95`}><Plus size={28} /></button>
         <button onClick={() => setActiveTab('analysis')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-gray-600'}`}><PieChart size={24} /><span className="text-[10px] font-medium">Analysis</span></button>
-        <button onClick={() => setShowDeployInfo(true)} className={`p-2 rounded-xl flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600`}><Smartphone size={24} /><span className="text-[10px] font-medium">Install</span></button>
+        <button onClick={() => {
+           alert("App Version 3.0 with Google Login 🚀");
+        }} className={`p-2 rounded-xl flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600`}><Info size={24} /><span className="text-[10px] font-medium">About</span></button>
       </nav>
     </div>
   );
