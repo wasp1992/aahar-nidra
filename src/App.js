@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Moon, Sun, Utensils, Activity, ChevronLeft, ChevronRight, 
   Plus, Save, Trash2, PieChart, BarChart2, Info, Droplet,
-  Sparkles, X, Smartphone, LogOut, User, Clock, Settings, Key, Flame
+  Sparkles, X, Smartphone, LogOut, User, Clock, Settings, Key, 
+  Flame, WifiOff, Search, AlertTriangle
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
