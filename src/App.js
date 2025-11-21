@@ -537,7 +537,7 @@ export default function App() {
 
       <header className="bg-indigo-600 text-white p-6 pb-12 rounded-b-[30px] shadow-lg relative z-10">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity size={24} /> Aahar & Nidra <span className="text-xs bg-indigo-800 px-1 rounded">v7.0</span></h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity size={24} /> Aahar & Nidra <span className="text-xs bg-indigo-800 px-1 rounded">v7.2</span></h1>
           <div className="flex items-center gap-2">
              {user.photoURL ? <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border-2 border-white/50" /> : <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center"><User size={16}/></div>}
              <button onClick={handleLogout} className="text-xs bg-indigo-500 hover:bg-indigo-400 p-2 rounded-lg"><LogOut size={16} /></button>
